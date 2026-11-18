@@ -1,0 +1,9 @@
+**/venv
+**/__pycache__
+**/.env
+.env
+**/*.db
+.git
+
+# Скриншоты нужны только в README, в образы их не копируем.
+**/screenshots

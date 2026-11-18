@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Чат Бот</title>
+
+<!-- Библиотека для оформления ответов в Markdown. -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js" defer></script>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <!-- Панель создания и выбора сохранённых диалогов. -->
+    <aside class="sidebar" id="sidebar">
+
+        <div class="brand">Python Чат Бот</div>
+
+        <button class="new-chat" id="newChat">
+            + Новый диалог
+        </button>
+
+        <div class="side-label">Диалоги</div>
+
+        <div class="chat-list" id="chatList"></div>
+
+    </aside>
+
+    <!-- Основная область: история переписки и форма отправки. -->
+    <main class="main">
+
+        <header class="topbar">
+            <button class="mobile-menu" id="menuBtn">☰</button>
+            <span id="currentTitle">Новый диалог</span>
+        </header>
+
+        <section class="content">
+
+            <div class="welcome" id="welcome">
+
+                <h1>
+                    Привет! Давай изучать
+                    <span>Python</span> вместе.
+                </h1>
+
+                <p>
+                    Задавай вопросы, разбирай сложные темы
+                    и учись писать код. Я помогу тебе
+                    разобраться в Python шаг за шагом.
+                </p>
+
+                <div class="suggestions">
+
+                    <button class="suggestion"
+                        data-prompt="Объясни основы Python для начинающего">
+                        <div class="s-title">Начать с нуля</div>
+                        <div class="s-desc">Основы языка простыми словами</div>
+                    </button>
+
+                    <button class="suggestion"
+                        data-prompt="Объясни, как работают списки в Python">
+                        <div class="s-title">Изучить списки</div>
+                        <div class="s-desc">Коллекции, индексы и методы</div>
+                    </button>
+
+                    <button class="suggestion"
+                        data-prompt="Помоги разобраться с циклами for и while">
+                        <div class="s-title">Изучить циклы</div>
+                        <div class="s-desc">Повторение действий в коде</div>
+                    </button>
+
+                    <button class="suggestion"
+                        data-prompt="Придумай простое практическое задание по Python">
+                        <div class="s-title">Попрактиковаться</div>
+                        <div class="s-desc">Практическое задание по Python</div>
+                    </button>
+
+                </div>
+            </div>
+
+            <div class="messages" id="messages"></div>
+
+            <div class="composer-wrap">
+
+                <div class="composer">
+
+                    <textarea
+                        id="prompt"
+                        rows="2"
+                        maxlength="4000"
+                        placeholder="Спроси что-нибудь о Python..."
+                    ></textarea>
+
+                    <div class="composer-bottom">
+                        <button class="send" id="sendBtn" title="Отправить">↑</button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Интерфейс обращается только к основному API; ключ модели остаётся на сервере.
+const API_BASE = "/api";
+
+// Находит элемент страницы по CSS селектору.
+// Параметры: sel — CSS селектор элемента.
+function $(sel) {
+    return document.querySelector(sel);
+}
+
+const welcomeEl = $("#welcome");
+const messagesEl = $("#messages");
+const promptEl = $("#prompt");
+const chatListEl = $("#chatList");
+const currentTitleEl = $("#currentTitle");
+const sendBtn = $("#sendBtn");
+const sidebarEl = $("#sidebar");
+
+let chats = [];
+let activeChatId = null;
+let busy = false;
+
+
+// ---------- Toast ----------
+
+let toastTimer = null;
+// Показывает короткое уведомление.
+// Параметры: text — текст уведомления.
+function showToast(text) {
+    const toast = $("#toast");
+    toast.textContent = text;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    // Убирает уведомление через 2,5 секунды. Параметров нет.
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 2500);
+}
+
+
+// ---------- Markdown ----------
+
+// Заменяет специальные символы HTML безопасными символами.
+// Параметры: str — исходная строка.
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// Оформляет ответ бота с помощью Markdown.
+// Параметры: text — текст ответа модели.
+function renderMarkdown(text) {
+    if (!window.marked) return escapeHtml(text);
+    try {
+        const renderer = new marked.Renderer();
+        // Показывает HTML как текст. Параметр html — исходная разметка.
+        renderer.html = function (html) { return escapeHtml(html); };
+        // Создаёт безопасную ссылку. Параметры: href — адрес; title — подпись (не используется); label — текст.
+        renderer.link = function (href, title, label) {
+            if (!/^https?:\/\//i.test(href || "")) return label;
+            return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+        };
+        // Вместо картинки показывает подпись. Параметры: href — адрес; title — заголовок; label — подпись.
+        renderer.image = function (href, title, label) { return escapeHtml(label || ""); };
+        return marked.parse(text, { renderer, breaks: true, gfm: true });
+    } catch (e) {
+        console.error("Markdown parse error", e);
+        return escapeHtml(text);
+    }
+}
+
+
+// ---------- HTTP ----------
+
+// Отправляет запрос основному API и читает JSON ответ.
+// Параметры: path — путь API после /api; options — настройки fetch: метод, тело запроса и другие параметры.
+async function apiRequest(path, options = {}) {
+    const response = await fetch(API_BASE + path, {
+        headers: { "Content-Type": "application/json" },
+        method: options.method || "GET",
+        body: options.body,
+        signal: AbortSignal.timeout(45000),
+    });
+
+    if (!response.ok) {
+        let detail = response.statusText;
+        try {
+            const data = await response.json();
+            detail = data.error || detail;
+        } catch (_) {}
+        throw new Error(detail || "Ошибка сервера");
+    }
+
+    if (response.status === 204) return null;
+    return response.json();
+}
+
+
+// ---------- Render: сообщения ----------
+
+// Показывает приветствие вместо сообщений.
+function showWelcome() {
+    messagesEl.innerHTML = "";
+    messagesEl.style.display = "none";
+    welcomeEl.style.display = "block";
+}
+
+// Скрывает приветствие и показывает область переписки.
+function showMessagesView() {
+    welcomeEl.style.display = "none";
+    messagesEl.style.display = "flex";
+}
+
+// Добавляет одно сообщение в переписку.
+// Параметры: text — текст сообщения; sender — автор: user или assistant; opts — дополнительные данные: error (ошибка) и createdAt (время).
+function addMessage(text, sender, opts = {}) {
+    showMessagesView();
+
+    const message = document.createElement("div");
+    message.className = "message " + sender;
+    if (opts.error) message.classList.add("error");
+
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+
+    if (sender === "assistant" && !opts.error) {
+        bubble.innerHTML = renderMarkdown(text);
+    } else {
+        bubble.textContent = text;
+    }
+
+    message.appendChild(bubble);
+
+    if (opts.createdAt) {
+        const time = document.createElement("div");
+        time.className = "bubble-time";
+        time.textContent = new Date(opts.createdAt).toLocaleTimeString("ru-RU", {
+            hour: "2-digit", minute: "2-digit",
+        });
+        message.appendChild(time);
+    }
+
+    messagesEl.appendChild(message);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return message;
+}
+
+// Показывает индикатор ожидания ответа.
+function addTyping() {
+    showMessagesView();
+    const el = document.createElement("div");
+    el.className = "message assistant";
+    el.id = "typing";
+    el.innerHTML = '<div class="bubble typing"><span></span><span></span><span></span></div>';
+    messagesEl.appendChild(el);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+// Убирает индикатор ожидания.
+function removeTyping() {
+    const el = document.getElementById("typing");
+    if (el) el.remove();
+}
+
+
+// ---------- Render: список чатов ----------
+
+// Обновляет список диалогов в боковой панели.
+function renderChats() {
+    chatListEl.innerHTML = "";
+
+    if (chats.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "chat-empty";
+        empty.textContent = "Пока пусто";
+        chatListEl.appendChild(empty);
+        return;
+    }
+
+    for (const chat of chats) {
+        const row = document.createElement("div");
+        row.className = "chat-row";
+
+        const openBtn = document.createElement("button");
+        openBtn.className = "chat-item";
+        if (String(chat.id) === String(activeChatId)) {
+            openBtn.className += " active";
+        }
+        openBtn.textContent = chat.title || "Новый диалог";
+        openBtn.title = chat.title || "";
+        // Открывает выбранный диалог по нажатию. Параметров нет.
+        openBtn.addEventListener("click", function () { openChat(chat.id); });
+
+        const actions = document.createElement("div");
+        actions.className = "chat-actions";
+
+        // Переименовать
+        const editBtn = document.createElement("button");
+        editBtn.className = "chat-action";
+        editBtn.textContent = "✎";
+        editBtn.title = "Переименовать";
+        // Запускает переименование. Параметр e — событие нажатия.
+        editBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            renameChat(chat.id);
+        });
+
+        // Удалить
+        const delBtn = document.createElement("button");
+        delBtn.className = "chat-action";
+        delBtn.textContent = "×";
+        delBtn.title = "Удалить";
+        // Запускает удаление. Параметр e — событие нажатия.
+        delBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            deleteChat(chat.id);
+        });
+
+        actions.append(editBtn, delBtn);
+        row.append(openBtn, actions);
+        chatListEl.appendChild(row);
+    }
+}
+
+// Ищет индекс диалога в списке или возвращает -1.
+// Параметры: id — номер диалога.
+function findChatIndex(id) {
+    for (let i = 0; i < chats.length; i++) {
+        if (String(chats[i].id) === String(id)) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+// Находит диалог по номеру или возвращает null.
+// Параметры: id — номер диалога.
+function findChat(id) {
+    const index = findChatIndex(id);
+    if (index === -1) {
+        return null;
+    }
+    return chats[index];
+}
+
+// Показывает название открытого диалога.
+function updateTitle() {
+    const conv = findChat(activeChatId);
+    currentTitleEl.textContent = "Новый диалог";
+    if (conv) {
+        currentTitleEl.textContent = conv.title;
+    }
+}
+
+// Включает или блокирует поле ввода и кнопку отправки.
+function updateComposerState() {
+    const enabled = activeChatId !== null && !busy;
+    promptEl.disabled = !enabled;
+    sendBtn.disabled = !enabled;
+}
+
+
+// ---------- Действия ----------
+
+// Загружает список диалогов с сервера.
+async function loadChats() {
+    try {
+        chats = await apiRequest("/conversations");
+    } catch (e) {
+        showToast("Не удалось загрузить диалоги");
+        console.error(e);
+        chats = [];
+    }
+
+    renderChats();
+    updateComposerState();
+
+    if (chats.length > 0) {
+        await openChat(chats[0].id);
+    } else {
+        activeChatId = null;
+        updateTitle();
+        showWelcome();
+    }
+}
+
+// Открывает диалог и загружает его сообщения.
+// Параметры: id — номер диалога, который нужно открыть.
+async function openChat(id) {
+    activeChatId = id;
+    renderChats();
+    updateTitle();
+    updateComposerState();
+    sidebarEl.classList.remove("open");
+
+    try {
+        const conv = await apiRequest(`/conversations/${id}`);
+
+        const idx = findChatIndex(id);
+        if (idx !== -1) {
+            chats[idx].title = conv.title;
+            renderChats();
+            updateTitle();
+        }
+
+        messagesEl.innerHTML = "";
+
+        if (!conv.messages || conv.messages.length === 0) {
+            showWelcome();
+            return;
+        }
+
+        showMessagesView();
+        for (const m of conv.messages) {
+            let sender = "user";
+            if (m.role === "assistant") {
+                sender = "assistant";
+            }
+            addMessage(m.content, sender, { createdAt: m.created_at });
+        }
+    } catch (e) {
+        showWelcome();
+        showToast("Ошибка загрузки сообщений");
+        console.error(e);
+    }
+}
+
+// Создаёт пустой диалог и открывает его.
+async function createChat() {
+    try {
+        const conv = await apiRequest("/conversations", {
+            method: "POST",
+            body: JSON.stringify({ title: "Новый диалог" }),
+        });
+        chats.unshift(conv);
+        activeChatId = conv.id;
+        renderChats();
+        updateTitle();
+        updateComposerState();
+        showWelcome();
+        sidebarEl.classList.remove("open");
+        promptEl.focus();
+    } catch (e) {
+        showToast("Не удалось создать диалог");
+        console.error(e);
+    }
+}
+
+// Запрашивает новое название и сохраняет его.
+// Параметры: id — номер диалога для переименования.
+async function renameChat(id) {
+    const chat = findChat(id);
+    if (!chat) return;
+
+    const currentTitle = chat.title || "Новый диалог";
+    const input = prompt("Новое название диалога:", currentTitle);
+
+    if (input === null) return;
+
+    const newTitle = input.trim();
+    if (!newTitle) {
+        showToast("Название не может быть пустым");
+        return;
+    }
+    if (newTitle === currentTitle) return;
+
+    try {
+        const updated = await apiRequest(`/conversations/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ title: newTitle }),
+        });
+
+        const idx = findChatIndex(id);
+        if (idx !== -1) {
+            chats[idx].title = updated.title;
+        }
+
+        if (String(activeChatId) === String(id)) {
+            updateTitle();
+        }
+
+        renderChats();
+        showToast("Название изменено");
+    } catch (e) {
+        showToast("Не удалось переименовать: " + e.message);
+        console.error(e);
+    }
+}
+
+// Удаляет диалог после подтверждения пользователя.
+// Параметры: id — номер удаляемого диалога.
+async function deleteChat(id) {
+    const chat = findChat(id);
+    let title = "этот диалог";
+    if (chat) {
+        title = chat.title;
+    }
+    if (!confirm(`Удалить диалог "${title}"?`)) return;
+
+    try {
+        await apiRequest(`/conversations/${id}`, { method: "DELETE" });
+        const index = findChatIndex(id);
+        if (index !== -1) {
+            chats.splice(index, 1);
+        }
+
+        if (String(activeChatId) === String(id)) {
+            activeChatId = null;
+            showWelcome();
+            if (chats.length > 0) {
+                await openChat(chats[0].id);
+            } else {
+                updateTitle();
+                updateComposerState();
+            }
+        }
+        renderChats();
+        showToast("Диалог удалён");
+    } catch (e) {
+        showToast("Не удалось удалить диалог");
+        console.error(e);
+    }
+}
+
+// Отправляет текст пользователя и показывает ответ бота.
+// Параметры: text — готовый текст; если не задан, берётся из поля ввода.
+async function sendMessage(text) {
+    if (text === undefined || text === null) {
+        text = promptEl.value;
+    }
+    const value = text.trim();
+    if (!value) return;
+
+    if (!activeChatId) {
+        showToast("Сначала создайте диалог");
+        return;
+    }
+    if (busy) return;
+    if (value.length > 4000) {
+        showToast("Максимум 4000 символов");
+        return;
+    }
+
+    addMessage(value, "user", { createdAt: new Date().toISOString() });
+    promptEl.value = "";
+
+    busy = true;
+    updateComposerState();
+    addTyping();
+
+    try {
+        const result = await apiRequest(
+            `/conversations/${activeChatId}/messages`,
+            { method: "POST", body: JSON.stringify({ content: value }) }
+        );
+
+        removeTyping();
+
+        addMessage(
+            result.assistant_message.content,
+            "assistant",
+            { createdAt: result.assistant_message.created_at }
+        );
+
+        const idx = findChatIndex(activeChatId);
+        if (idx !== -1) {
+            chats[idx].title = result.conversation.title;
+            renderChats();
+            updateTitle();
+        }
+    } catch (e) {
+        removeTyping();
+        addMessage("⚠ " + e.message + " Если сообщение не отправилось или ответ не пришёл, попробуйте включить VPN на компьютере, где запущен LLM сервис, и повторите запрос. Проверьте также подключение к интернету.", "assistant", { error: true });
+        promptEl.value = value;
+        showToast("Ошибка: " + e.message);
+        console.error(e);
+    } finally {
+        busy = false;
+        updateComposerState();
+        promptEl.focus();
+    }
+}
+
+
+// ---------- События ----------
+
+// Отправляет сообщение по нажатию кнопки. Параметров нет.
+sendBtn.addEventListener("click", function () { sendMessage(); });
+
+// Обрабатывает Enter в поле ввода. Параметр e — событие клавиатуры.
+promptEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+for (const btn of document.querySelectorAll(".suggestion")) {
+    // Отправляет вопрос с выбранной карточки. Параметров нет.
+    btn.addEventListener("click", async function () {
+        if (!activeChatId) {
+            await createChat();
+        }
+        sendMessage(btn.dataset.prompt);
+    });
+}
+
+$("#newChat").addEventListener("click", createChat);
+
+// Открывает и скрывает боковую панель. Параметров нет.
+$("#menuBtn").addEventListener("click", function () {
+    sidebarEl.classList.toggle("open");
+});
+
+
+// ---------- Старт ----------
+
+// Показывает ошибку загрузки. Параметр e — полученная ошибка.
+loadChats().catch(function (e) {
+    showToast("Не удалось подключиться к серверу");
+    console.error(e);
+});
+</script>
+
+</body>
+</html>

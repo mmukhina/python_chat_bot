@@ -1,0 +1,5 @@
+# FastAPI и Uvicorn: HTTP API и встроенная документация.
+fastapi==0.115.6
+uvicorn==0.34.0
+SQLAlchemy==2.0.36
+requests==2.31.0

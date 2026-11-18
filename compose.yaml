@@ -1,0 +1,22 @@
+# Два HTTP сервиса и постоянное хранилище SQLite.
+services:
+  chat_bot:
+    build:
+      context: .
+      dockerfile: chat_bot/Dockerfile
+    ports: ["5002:5002"]
+    environment:
+      LLM_SERVICE_URL: http://llm:5001
+      LLM_TIMEOUT: 35
+      HISTORY_LIMIT: ${HISTORY_LIMIT:-10}
+      DATABASE_URL: sqlite:////data/chat.db
+    volumes: ["chat_data:/data"]
+    depends_on: [llm]
+  llm:
+    build:
+      context: .
+      dockerfile: llm_service/Dockerfile
+    env_file: .env
+    ports: ["127.0.0.1:5001:5001"]
+volumes:
+  chat_data:

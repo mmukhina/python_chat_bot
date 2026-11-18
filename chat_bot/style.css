@@ -1,0 +1,579 @@
+/* Общие стили интерфейса: компоновка, цвета, история сообщений и адаптация. */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f7f7fa;
+    color: #25243a;
+    height: 100vh;
+    overflow: hidden;
+}
+
+button, textarea {
+    font-family: inherit;
+}
+
+.app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* ================ Боковая панель ================ */
+
+.sidebar {
+    width: 270px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid #e9e9ef;
+    padding: 25px 18px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.brand {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 30px;
+    padding: 0 8px;
+}
+
+.new-chat {
+    border: none;
+    border-radius: 10px;
+    background: #6558d3;
+    color: white;
+    padding: 13px;
+    font-size: 14px;
+    cursor: pointer;
+    margin-bottom: 30px;
+    transition: background 0.15s;
+}
+
+.new-chat:hover,
+.send:hover:not(:disabled) {
+    background: #5145bd;
+}
+
+.side-label {
+    font-size: 11px;
+    color: #9999a8;
+    text-transform: uppercase;
+    margin: 0 8px 12px;
+    letter-spacing: 1px;
+}
+
+.chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+}
+
+.chat-empty {
+    color: #b4b3c2;
+    font-size: 12px;
+    padding: 8px;
+}
+
+.chat-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.chat-item {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 12px;
+    text-align: left;
+    border-radius: 9px;
+    cursor: pointer;
+    color: #55546a;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+
+.chat-item:hover,
+.chat-item.active {
+    background: #f0efff;
+    color: #6558d3;
+}
+
+.chat-actions {
+    display: flex;
+    gap: 2px;
+}
+
+.chat-action {
+    border: none;
+    background: transparent;
+    color: #9999a8;
+    border-radius: 7px;
+    cursor: pointer;
+    width: 28px;
+    height: 30px;
+    font-size: 15px;
+    transition: background 0.15s, color 0.15s;
+}
+
+.chat-action:hover {
+    background: #f0efff;
+    color: #6558d3;
+}
+
+/* ================ Основная область ================ */
+
+.main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.topbar {
+    height: 65px;
+    flex-shrink: 0;
+    background: white;
+    border-bottom: 1px solid #e9e9ef;
+    display: flex;
+    align-items: center;
+    padding: 0 30px;
+    font-size: 13px;
+    color: #77768a;
+}
+
+.mobile-menu {
+    display: none;
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    margin-right: 12px;
+}
+
+.content {
+    width: 100%;
+    max-width: 850px;
+    margin: 0 auto;
+    padding: 35px 25px 25px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ================ Приветствие ================ */
+
+.welcome {
+    margin: auto auto 35px;
+    text-align: center;
+    max-width: 550px;
+    overflow-y: auto;
+    max-height: 100%;
+}
+
+.welcome h1 {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    margin: 0 0 15px;
+}
+
+.welcome h1 span {
+    color: #6558d3;
+}
+
+.welcome p {
+    color: #858497;
+    font-size: 14px;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.suggestions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-top: 28px;
+}
+
+.suggestion {
+    background: white;
+    border: 1px solid #e8e7ef;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.suggestion:hover {
+    border-color: #aaa2ee;
+    transform: translateY(-2px);
+}
+
+.s-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.s-desc {
+    color: #9291a1;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* ================ Сообщения ================ */
+
+.messages {
+    display: none;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+    padding: 10px 3px 25px;
+    flex: 1;
+    min-height: 0;
+}
+
+.message {
+    display: flex;
+    flex-direction: column;
+    max-width: 90%;
+}
+
+.message.user {
+    align-self: flex-end;
+    align-items: flex-end;
+}
+
+.bubble {
+    background: white;
+    border: 1px solid #e9e8ef;
+    border-radius: 5px 14px 14px 14px;
+    padding: 13px 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.message.user .bubble {
+    background: #eeecff;
+    border-color: transparent;
+    border-radius: 14px 5px 14px 14px;
+}
+
+.message.error .bubble {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+.bubble-time {
+    font-size: 10px;
+    color: #b4b3c2;
+    margin-top: 4px;
+    padding: 0 4px;
+}
+
+/* Индикатор набора */
+
+.bubble.typing {
+    display: flex;
+    gap: 4px;
+    padding: 15px 18px;
+}
+
+.bubble.typing span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #b4b3c2;
+    animation: bounce 1.2s infinite;
+}
+
+.bubble.typing span:nth-child(2) { animation-delay: 0.2s; }
+.bubble.typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30%           { transform: translateY(-6px); opacity: 1; }
+}
+
+/* ================ Поле ввода ================ */
+
+.composer-wrap {
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.composer {
+    background: white;
+    border: 1px solid #e5e4ed;
+    border-radius: 15px;
+    padding: 10px 10px 10px 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.composer textarea {
+    flex: 1;
+    min-width: 0;
+    min-height: 44px;
+    max-height: 140px;
+    resize: none;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #25243a;
+    background: transparent;
+    padding: 8px 0;
+    line-height: 1.4;
+}
+
+.composer textarea:disabled {
+    color: #aaa9b8;
+    cursor: not-allowed;
+}
+
+.composer textarea::placeholder {
+    color: #aaa9b8;
+}
+
+.composer-bottom {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.send {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 10px;
+    background: #6558d3;
+    color: white;
+    font-size: 19px;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.send:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ================ Toast ================ */
+
+.toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #25243a;
+    color: white;
+    padding: 11px 17px;
+    border-radius: 9px;
+    font-size: 13px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+    z-index: 20;
+    max-width: 90vw;
+    text-align: center;
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+/* ================ Markdown в сообщениях ассистента ================ */
+
+.message.assistant .bubble {
+    white-space: normal;
+}
+
+.bubble h1,
+.bubble h2,
+.bubble h3,
+.bubble h4 {
+    margin: 12px 0 6px;
+    line-height: 1.3;
+    font-weight: 600;
+}
+
+.bubble h1 { font-size: 18px; }
+.bubble h2 { font-size: 16px; }
+.bubble h3 { font-size: 15px; }
+.bubble h4 { font-size: 14px; }
+
+.bubble p {
+    margin: 6px 0;
+    white-space: pre-wrap;
+}
+
+.bubble p:first-child { margin-top: 0; }
+.bubble p:last-child  { margin-bottom: 0; }
+
+.bubble ul,
+.bubble ol {
+    margin: 6px 0 6px 20px;
+    padding: 0;
+}
+
+.bubble li {
+    margin: 3px 0;
+    white-space: pre-wrap;
+}
+
+.bubble strong {
+    font-weight: 600;
+    color: #1a1930;
+}
+
+.bubble em {
+    font-style: italic;
+}
+
+.bubble a {
+    color: #6558d3;
+    text-decoration: underline;
+}
+
+.bubble a:hover {
+    text-decoration: none;
+}
+
+.bubble code {
+    background: #f1f0f7;
+    padding: 2px 5px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    color: #c7254e;
+}
+
+.bubble pre {
+    background: #f4f3fa;
+    color: #25243a;
+    border: 1px solid #e2e1ea;
+    padding: 12px 14px;
+    border-radius: 8px;
+    overflow-x: auto;
+    margin: 10px 0;
+    font-size: 12.5px;
+    line-height: 1.5;
+}
+
+.bubble pre code {
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+    white-space: pre;
+}
+
+.bubble table {
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 13px;
+    display: block;
+    overflow-x: auto;
+}
+
+.bubble th,
+.bubble td {
+    border: 1px solid #e2e1ea;
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+
+.bubble th {
+    background: #f5f4fb;
+    font-weight: 600;
+}
+
+.bubble tr:nth-child(even) td {
+    background: #fafafd;
+}
+
+.bubble blockquote {
+    border-left: 3px solid #d5d3e6;
+    padding: 4px 10px;
+    margin: 8px 0;
+    color: #6a6980;
+}
+
+.bubble hr {
+    border: none;
+    border-top: 1px solid #e2e1ea;
+    margin: 12px 0;
+}
+
+/* ================ Мобильная версия ================ */
+
+@media (max-width: 760px) {
+    .sidebar {
+        position: fixed;
+        z-index: 5;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        transform: translateX(-105%);
+        transition: 0.25s;
+        box-shadow: 10px 0 30px #0001;
+    }
+
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    .mobile-menu {
+        display: block;
+    }
+
+    .topbar {
+        height: 60px;
+        padding: 0 15px;
+    }
+
+    .content {
+        padding: 25px 15px;
+    }
+
+    .welcome h1 {
+        font-size: 27px;
+    }
+
+    .suggestions {
+        grid-template-columns: 1fr;
+    }
+
+    .message {
+        max-width: 100%;
+    }
+}

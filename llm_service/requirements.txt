@@ -1,0 +1,6 @@
+# FastAPI и Uvicorn: HTTP API и встроенная документация.
+fastapi==0.115.6
+uvicorn==0.34.0
+python-dotenv==1.0.0
+groq==0.11.0
+httpx==0.27.0
